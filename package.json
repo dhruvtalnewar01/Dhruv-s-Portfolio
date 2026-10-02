@@ -1,0 +1,42 @@
+{
+  "name": "portfolio-os",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:game": "npx esbuild src/games/browser.ts --bundle --minify --outfile=public/games/dist/browser.js",
+    "build": "npm run build:game && tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@vapi-ai/web": "^2.7.1",
+    "autoprefixer": "^10.5.4",
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.1.0",
+    "gsap": "^3.15.0",
+    "hls.js": "^1.7.1",
+    "lucide-react": "^1.31.0",
+    "postcss": "^8.5.26",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "three": "^0.185.1",
+    "tldraw": "^5.4.0",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "oxlint": "^1.75.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
+  }
+}

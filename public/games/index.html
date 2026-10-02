@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Vault-Tec Terminal Hacking OS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="preload" href="./assets/fonts/VCR_OSD_MONO_1.001.ttf" as="font" type="font/ttf" crossorigin>
+
+    <style>
+      :root {
+        --terminal-primary: #36fc9b;
+        --terminal-glow: rgba(54, 252, 155, 0.4);
+        --terminal-bg: #070e09;
+        --bezel-color: #121513;
+        --bezel-border: #1f2821;
+      }
+
+      @font-face {
+        font-family: 'VCR_OSD_MONO_1.001';
+        src: url('./assets/fonts/VCR_OSD_MONO_1.001.ttf') format('truetype');
+        font-display: block;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        background-color: #030504;
+        color: var(--terminal-primary);
+        font-family: 'VCR_OSD_MONO_1.001', monospace, monospace;
+        overflow: hidden;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+        position: relative;
+        background: radial-gradient(circle at center, #07130a 0%, #020403 100%);
+      }
+
+      /* Top Bar / HUD - Safe area for macOS traffic lights at top-left */
+      .hud-header {
+        width: 100%;
+        height: 52px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 20px 0 100px; /* 100px left padding keeps traffic lights completely clear */
+        background: linear-gradient(180deg, rgba(8, 18, 12, 0.95) 0%, rgba(3, 8, 5, 0.6) 100%);
+        border-bottom: 1px solid rgba(54, 252, 155, 0.2);
+        z-index: 50;
+        flex-shrink: 0;
+      }
+
+      .terminal-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 13px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        color: var(--terminal-primary);
+        text-shadow: 0 0 8px var(--terminal-glow);
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--terminal-primary);
+        box-shadow: 0 0 10px var(--terminal-primary);
+        animation: pulse 2s infinite ease-in-out;
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 1; }
+      }
+
+      .hud-controls {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .hud-btn, .hud-select {
+        background: rgba(12, 28, 18, 0.85);
+        color: var(--terminal-primary);
+        border: 1px solid rgba(54, 252, 155, 0.35);
+        font-family: inherit;
+        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.15s ease-in-out;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        letter-spacing: 1px;
+      }
+
+      .hud-btn:hover, .hud-select:hover {
+        background: rgba(54, 252, 155, 0.15);
+        border-color: var(--terminal-primary);
+        box-shadow: 0 0 10px var(--terminal-glow);
+      }
+
+      .hud-btn:active {
+        transform: translateY(1px);
+      }
+
+      .hud-select option {
+        background: #08120c;
+        color: var(--terminal-primary);
+      }
+
+      /* CRT Mainframe Screen Area */
+      .screen-viewport {
+        flex: 1;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 14px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      /* CRT Monitor Bezel */
+      .crt-bezel {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0e1410;
+        border-radius: 16px;
+        padding: 12px;
+        border: 2px solid #233527;
+        box-shadow: 
+          0 0 35px rgba(0, 0, 0, 0.9),
+          inset 0 0 25px rgba(0, 0, 0, 0.8),
+          0 0 30px var(--terminal-glow);
+        max-width: 96vw;
+        max-height: calc(100vh - 100px);
+        aspect-ratio: 4 / 3;
+      }
+
+      /* CRT Curved Glass Inner Screen */
+      .crt-screen {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.95);
+      }
+
+      /* Canvas with integer crisp pixel scaling */
+      #terminal-canvas {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+        display: block;
+        cursor: crosshair;
+        touch-action: none;
+      }
+
+      /* CRT Scanline Overlay */
+      .crt-screen::before {
+        content: " ";
+        display: block;
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          rgba(18, 16, 16, 0) 50%, 
+          rgba(0, 0, 0, 0.45) 50%
+        );
+        background-size: 100% 4px;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      /* CRT Vignette / Curvature Glow */
+      .crt-screen::after {
+        content: " ";
+        display: block;
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(
+          circle at center, 
+          transparent 60%, 
+          rgba(0, 0, 0, 0.75) 100%
+        );
+        pointer-events: none;
+        z-index: 11;
+      }
+
+      /* Bottom Footer / Keyboard Hints */
+      .hud-footer {
+        width: 100%;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        background: rgba(3, 8, 5, 0.8);
+        border-top: 1px solid rgba(54, 252, 155, 0.15);
+        font-size: 11px;
+        color: rgba(54, 252, 155, 0.6);
+        letter-spacing: 1px;
+        flex-shrink: 0;
+      }
+
+      .hud-footer span {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .kbd-chip {
+        display: inline-block;
+        padding: 2px 6px;
+        background: rgba(54, 252, 155, 0.1);
+        border: 1px solid rgba(54, 252, 155, 0.3);
+        border-radius: 3px;
+        color: var(--terminal-primary);
+        font-size: 10px;
+      }
+
+      /* How to Play Modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+        transition: opacity 0.2s ease-in-out;
+      }
+
+      .modal-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .modal-card {
+        background: #07130b;
+        border: 2px solid var(--terminal-primary);
+        box-shadow: 0 0 30px var(--terminal-glow);
+        border-radius: 8px;
+        max-width: 580px;
+        width: 90%;
+        padding: 24px;
+        position: relative;
+        color: var(--terminal-primary);
+        line-height: 1.6;
+      }
+
+      .modal-title {
+        font-size: 18px;
+        letter-spacing: 2px;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(54, 252, 155, 0.3);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .modal-close-btn {
+        background: transparent;
+        border: none;
+        color: var(--terminal-primary);
+        font-size: 20px;
+        cursor: pointer;
+        font-family: inherit;
+      }
+
+      .modal-body p {
+        margin-bottom: 12px;
+        font-size: 13px;
+      }
+
+      .modal-body ul {
+        margin-left: 20px;
+        margin-bottom: 16px;
+        font-size: 13px;
+      }
+
+      .modal-body li {
+        margin-bottom: 6px;
+      }
+
+      .highlight-tag {
+        color: #fff;
+        background: rgba(54, 252, 155, 0.25);
+        padding: 1px 4px;
+        border-radius: 2px;
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+        .hud-header {
+          padding-left: 80px;
+          padding-right: 12px;
+        }
+        .terminal-title span:last-child {
+          display: none;
+        }
+        .hud-btn span, .hud-select {
+          font-size: 11px;
+          padding: 4px 8px;
+        }
+        .hud-footer {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top HUD Header (Clears macOS traffic lights at top-left) -->
+    <header class="hud-header">
+      <div class="terminal-title">
+        <div class="status-dot"></div>
+        <span>ROBCO TERMLINK</span>
+        <span style="opacity: 0.6; font-size: 11px;">[PROTOCOL V2.0.4]</span>
+      </div>
+
+      <div class="hud-controls">
+        <select id="letters" class="hud-select" title="Difficulty / Word Length">
+          <option value="4">4 LETTERS</option>
+          <option value="5" selected>5 LETTERS</option>
+          <option value="6">6 LETTERS</option>
+          <option value="7">7 LETTERS</option>
+          <option value="8">8 LETTERS</option>
+          <option value="9">9 LETTERS</option>
+        </select>
+
+        <select id="theme-select" class="hud-select" title="CRT Phosphor Theme">
+          <option value="green" selected>🟩 VAULT GREEN</option>
+          <option value="amber">🟧 MOJAVE AMBER</option>
+          <option value="cyan">🟦 INSTITUTE CYAN</option>
+          <option value="white">⬜ MAINFRAME WHITE</option>
+        </select>
+
+        <button id="btn-sound" class="hud-btn" title="Toggle Terminal Audio">
+          🔊 SOUND: ON
+        </button>
+
+        <button id="btn-reset" class="hud-btn" title="Reboot Terminal">
+          🔃 REBOOT
+        </button>
+
+        <button id="btn-help" class="hud-btn" title="How to Play Terminal Hacking">
+          📖 GUIDE
+        </button>
+      </div>
+    </header>
+
+    <!-- CRT Mainframe Center Stage -->
+    <main class="screen-viewport">
+      <div class="crt-bezel">
+        <div class="crt-screen">
+          <canvas id="terminal-canvas" width="640" height="480"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer Status / Shortcuts -->
+    <footer class="hud-footer">
+      <span>
+        TIP: CLICK MATCHING BRACKETS LIKE <span class="kbd-chip">(...)</span>, <span class="kbd-chip">[...]</span>, <span class="kbd-chip">{...}</span>, <span class="kbd-chip">&lt;...&gt;</span> TO REMOVE DUDS OR RESET ATTEMPTS
+      </span>
+      <span>
+        <span class="kbd-chip">SPACE</span> REBOOT &nbsp;|&nbsp; <span class="kbd-chip">ESC</span> CLOSE GUIDE
+      </span>
+    </footer>
+
+    <!-- How to Play Guide Modal -->
+    <div id="help-modal" class="modal-overlay hidden">
+      <div class="modal-card">
+        <div class="modal-title">
+          <span>// TERMINAL HACKING PROTOCOL</span>
+          <button id="help-close" class="modal-close-btn" aria-label="Close Guide">✕</button>
+        </div>
+        <div class="modal-body">
+          <p><strong>GOAL:</strong> Find the correct password hidden in memory before exhausting your 4 attempts.</p>
+          
+          <p><strong>1. LIKENESS SCORE:</strong></p>
+          <ul>
+            <li>When you pick a wrong word, the terminal displays <span class="highlight-tag">&gt;X/N correct</span>.</li>
+            <li>This means <strong>X</strong> characters match the password in the exact same letter position.</li>
+          </ul>
+
+          <p><strong>2. SECRET BRACKET TRICK:</strong></p>
+          <ul>
+            <li>Scan memory for matching bracket pairs on the same line: <span class="highlight-tag">(...)</span>, <span class="highlight-tag">[...]</span>, <span class="highlight-tag">{...}</span>, or <span class="highlight-tag">&lt;...&gt;</span>.</li>
+            <li>Hovering them highlights the entire block. Click to either:
+              <br>• <strong>Dud Removed</strong> (erases a false password)
+              <br>• <strong>Tries Reset</strong> (restores your 4 attempts)
+            </li>
+          </ul>
+
+          <p><strong>3. LOCKOUT:</strong></p>
+          <ul>
+            <li>4 incorrect guesses will initiate permanent terminal lockout. Reboot to try again.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bundled Game Engine -->
+    <script src="./dist/browser.js" defer></script>
+  </body>
+</html>
